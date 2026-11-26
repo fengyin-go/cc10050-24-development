@@ -22,6 +22,7 @@ from app.services.price_export import PriceExportService
 from app.services.change_history import ChangeHistoryService
 from app.services.match_review import MatchReviewService
 from app.services.collect_metrics import CollectMetricsService
+from app.services.parse_evidence import ParseEvidenceService
 
 SERVICES: dict[str, BaseModuleService] = {
     "shop_site": ShopSiteService(),
@@ -44,6 +45,7 @@ SERVICES: dict[str, BaseModuleService] = {
     "change_history": ChangeHistoryService(),
     "match_review": MatchReviewService(),
     "collect_metrics": CollectMetricsService(),
+    "parse_evidence": ParseEvidenceService(),
 }
 
 

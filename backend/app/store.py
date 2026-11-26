@@ -4,19 +4,24 @@
 """
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from app.seed import SEED_ROWS
 
+# 只做支撑、不对外当业务模块展示的内部表。
+INTERNAL_TABLES = {"metric_publish_history", "metric_reconcile_report"}
+
 
 class Store:
     def __init__(self) -> None:
+        # 深拷贝：交付单的明细是嵌套列表，运行期补报不能回写到种子数据。
         self._tables: dict[str, list[dict[str, Any]]] = {
-            name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
+            name: copy.deepcopy(rows) for name, rows in SEED_ROWS.items()
         }
 
     def module_names(self) -> list[str]:
-        return sorted(self._tables)
+        return sorted(name for name in self._tables if name not in INTERNAL_TABLES)
 
     def rows(self, module: str) -> list[dict[str, Any]]:
         return self._tables.setdefault(module, [])

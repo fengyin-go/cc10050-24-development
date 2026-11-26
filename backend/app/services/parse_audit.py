@@ -72,6 +72,76 @@ class ParseAuditService(BaseModuleService):
             "best_before": f"{worst:.2%}",
         }
 
+    def request_evidence(self, entry_id: int) -> dict[str, Any]:
+        """把本审计窗口的站点样本交给证据交付单申请导出。
+
+        站点与模板版本在申请时一次性绑定，后续补报只按指纹并入原单。
+        """
+        entry = store.find(self.MODULE, entry_id)
+        if entry is None:
+            return {"ok": False, "message": "审计明细不存在"}
+        from app.services import service_for  # 延迟导入，避免模块初始化循环
+
+        evidence = service_for("parse_evidence")
+        if evidence is None:
+            return {"ok": False, "message": "证据交付模块未注册"}
+        template = str(entry.get("解析模板", "") or "")
+        site = str(entry.get("站点名称", "") or "")
+        window = str(entry.get("窗口标识", "") or f"AUDIT-{entry_id}")
+        if not site:
+            # 审计批次未单独记站点时，用模板登记的适用站点兜底。
+            site = next(
+                (str(t.get("适用站点", "")) for t in store.rows("page_parser")
+                 if t.get("模板名称") == template), "",
+            )
+        version = next(
+            (str(t.get("解析版本", "")) for t in store.rows("page_parser")
+             if t.get("模板名称") == template), "",
+        )
+        if not site or not version:
+            return {"ok": False, "message": "审计批次缺少站点或模板版本，无法绑定证据窗口"}
+        # 同一窗口已有交付单时直接复用，重复点击不会开出第二张单。
+        existing = next(
+            (e for e in store.rows("parse_evidence") if e.get("窗口标识") == window), None
+        )
+        if existing is not None:
+            entry["证据交付单"] = existing.get("id")
+            return {
+                "ok": True,
+                "message": f"窗口 {window} 已有证据交付单，直接复用",
+                "evidence_id": existing.get("id"),
+                "reused": True,
+                "site": existing.get("站点名称"),
+                "version": existing.get("模板版本"),
+                "requested": int(str(existing.get("申请样本数", "0") or 0)),
+            }
+        rate_text = str(entry.get("字段命中率", "0%")).rstrip("%")
+        try:
+            rate = float(rate_text) / 100
+        except ValueError:
+            rate = 0.0
+        total = int(str(entry.get("样本总数", "0") or 0))
+        result = evidence.apply_package(
+            applicant="解析质量审计",
+            site=site,
+            template=template,
+            version=version,
+            window=window,
+            requested=total,
+            hit_count=round(total * rate),
+        )
+        if not result.get("ok"):
+            return result
+        entry["证据交付单"] = result["entry"].get("id")
+        return {
+            "ok": True,
+            "message": f"已按审计窗口 {window} 申请证据导出",
+            "evidence_id": result["entry"].get("id"),
+            "site": site,
+            "version": version,
+            "requested": total,
+        }
+
     def summarize_failures(self, entry_id: int) -> dict[str, Any]:
         """汇总失败隔离区中该模板的失败原因分布。"""
         entry = store.find(self.MODULE, entry_id)

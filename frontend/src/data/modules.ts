@@ -222,6 +222,17 @@ export const MODULES: ModuleMeta[] = [
     actionTargets: {"查看趋势": "量级波动", "忽略波动": "断采"},
     metrics: ["记录总数", "正常时段", "异常时段"],
   },
+  {
+    key: "parse_evidence",
+    name: "证据交付单",
+    entity: "证据交付单",
+    desc: "按审计窗口申请站点样本证据包，交付给指标复核",
+    fields: ["申请单号", "站点名称", "模板名称", "模板版本", "窗口标识", "申请样本数", "交付样本数", "命中样本数", "失配样本数", "指纹摘要"],
+    statuses: ["待下载", "可复核", "已复核", "已驳回"],
+    actions: ["确认导出", "关联指标复核"],
+    actionTargets: {"确认导出": "可复核", "关联指标复核": "已复核"},
+    metrics: ["交付单总数", "可复核", "已复核"],
+  },
 ]
 
 export const MODULE_BY_KEY: Map<string, ModuleMeta> = new Map(

@@ -12,6 +12,22 @@
         <button class="btn" data-testid="export" type="button" @click="exportRows">
           导出{{ meta.name }}清单
         </button>
+        <RouterLink
+          v-if="meta.key === 'collect_metrics'"
+          class="btn"
+          data-testid="to-evidence-review"
+          to="/collect_metrics/review"
+        >
+          证据复核
+        </RouterLink>
+        <RouterLink
+          v-if="meta.key === 'parse_audit'"
+          class="btn"
+          data-testid="to-evidence"
+          to="/parse_evidence"
+        >
+          申请证据导出
+        </RouterLink>
       </div>
     </header>
 
@@ -60,6 +76,15 @@
             >
               {{ action }}
             </button>
+            <button
+              v-if="meta.key === 'parse_audit'"
+              class="link"
+              type="button"
+              :data-testid="`request-evidence-${row.id}`"
+              @click="requestEvidence(row)"
+            >
+              申请证据导出
+            </button>
           </td>
         </tr>
         <tr v-if="!rows.length">
@@ -95,6 +120,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import {
   createEntry,
@@ -103,9 +129,11 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/backend-service'
+import { requestAuditEvidence as runAuditEvidenceRequest } from '@/api/evidence-service'
 import type { EntryRow } from '@/data/types'
 
 const props = defineProps<{ moduleKey: string }>()
+const router = useRouter()
 const meta = moduleMeta(props.moduleKey)
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
@@ -162,6 +190,17 @@ async function submitCreate() {
     errorMessage.value = error instanceof Error ? error.message : '登记失败'
   } finally {
     creating.value = false
+  }
+}
+
+async function requestEvidence(row: EntryRow) {
+  errorMessage.value = ''
+  try {
+    const result = await runAuditEvidenceRequest(Number(row.id))
+    if (!result.ok) throw new Error(result.message)
+    if (result.evidence_id) await router.push(`/parse_evidence?evidence=${result.evidence_id}`)
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '证据导出申请失败'
   }
 }
 
